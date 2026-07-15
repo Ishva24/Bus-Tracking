@@ -1,0 +1,21 @@
+{
+  "name": "@bustrack/simulator",
+  "version": "1.0.0",
+  "description": "Bus position simulator",
+  "main": "dist/simulator.js",
+  "scripts": {
+    "dev": "tsx watch src/simulator.ts",
+    "build": "tsc",
+    "start": "node dist/simulator.js",
+    "test": "echo \"no simulator tests configured\""
+  },
+  "dependencies": {
+    "@prisma/client": "^5.8.1",
+    "ioredis": "^5.3.2"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.6",
+    "tsx": "^4.7.0",
+    "typescript": "^5.3.3"
+  }
+}

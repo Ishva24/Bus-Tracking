@@ -1,0 +1,11 @@
+{
+  "name": "@bustrack/mobile",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Placeholder mobile workspace for future React Native app implementation",
+  "scripts": {
+    "build": "node -e \"console.log('mobile workspace scaffold only')\"",
+    "start": "node -e \"console.log('mobile workspace scaffold only')\"",
+    "test": "node -e \"console.log('no mobile tests configured')\""
+  }
+}

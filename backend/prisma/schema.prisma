@@ -1,0 +1,229 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// User and Authentication
+model User {
+  id              String          @id @default(uuid())
+  email           String          @unique
+  passwordHash    String
+  name            String
+  phone           String?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  favoriteRoutes  FavoriteRoute[]
+  fcmTokens       FcmToken[]
+  refreshTokens   RefreshToken[]
+  proximityAlerts ProximityAlert[]
+
+  @@map("users")
+}
+
+model RefreshToken {
+  id          String    @id @default(uuid())
+  token       String    @unique @db.VarChar(500)
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt   DateTime
+  createdAt   DateTime  @default(now())
+
+  @@map("refresh_tokens")
+}
+
+model FcmToken {
+  id        String   @id @default(uuid())
+  token     String   @unique @db.VarChar(500)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  platform  String   // "ios" | "android"
+  createdAt DateTime @default(now())
+
+  @@map("fcm_tokens")
+}
+
+model FavoriteRoute {
+  id        String   @id @default(uuid())
+  userId    String
+  routeId   String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  route     Route    @relation(fields: [routeId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, routeId])
+  @@map("favorite_routes")
+}
+
+// Bus and Route Models
+model Bus {
+  id              String           @id @default(uuid())
+  vehicleNo       String           @unique // e.g., "TN01AB1234"
+  busNumber       String           // e.g., "47C" (route-facing number)
+  routeId         String
+  route           Route            @relation(fields: [routeId], references: [id])
+  status          BusStatus        @default(ACTIVE)
+  capacity        Int              @default(50)
+  serviceType     ServiceType      @default(ORDINARY)
+  isFreeForWomen  Boolean          @default(false)
+  isLowFloor      Boolean          @default(false)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  proximityAlerts ProximityAlert[]
+
+  @@index([routeId])
+  @@index([busNumber])
+  @@index([status])
+  @@map("buses")
+}
+
+enum BusStatus {
+  ACTIVE
+  INACTIVE
+  MAINTENANCE
+}
+
+enum ServiceType {
+  ORDINARY
+  DELUXE
+  ULTRA_DELUXE
+  AC_SLEEPER
+  VOLVO
+}
+
+enum CorporationType {
+  MTC
+  SETC
+  TNSTC_VILLUPURAM
+  TNSTC_KUMBAKONAM
+  TNSTC_COIMBATORE
+  TNSTC_MADURAI
+  TNSTC_SALEM
+  TNSTC_TIRUNELVELI
+}
+
+enum StopCategory {
+  CITY_HUB
+  TOWN_STOP
+  VILLAGE_STOP
+}
+
+model District {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  region    String   // e.g., "North" | "South" | "West" | "Central" | "Delta"
+  stops     Stop[]
+  createdAt DateTime @default(now())
+
+  @@map("districts")
+}
+
+model Route {
+  id          String          @id @default(uuid())
+  name        String          // e.g., "Tambaram to Broadway"
+  number      String          @unique // e.g., "47C"
+  description String?
+  corporation CorporationType @default(MTC)
+  createdAt   DateTime        @default(now())
+
+  routeStops  RouteStop[]
+  buses       Bus[]
+  favoriteBy  FavoriteRoute[]
+
+  @@map("routes")
+}
+
+model Stop {
+  id              String           @id @default(uuid())
+  name            String
+  latitude        Float
+  longitude       Float
+  category        StopCategory     @default(TOWN_STOP)
+  districtId      String?
+  district        District?        @relation(fields: [districtId], references: [id])
+  createdAt       DateTime         @default(now())
+  routeStops      RouteStop[]
+  proximityAlerts ProximityAlert[]
+
+  @@index([name])
+  @@map("stops")
+}
+
+model RouteStop {
+  id          String   @id @default(uuid())
+  routeId     String
+  stopId      String
+  sequence    Int      // Order along route (1, 2, 3, ...)
+
+  route       Route    @relation(fields: [routeId], references: [id], onDelete: Cascade)
+  stop        Stop     @relation(fields: [stopId], references: [id], onDelete: Cascade)
+
+  @@unique([routeId, sequence])
+  @@index([routeId])
+  @@index([stopId])
+  @@map("route_stops")
+}
+
+// Configuration
+model MapProviderConfig {
+  id              String   @id @default(uuid())
+  providerName    String   // "google" | "maplibre" | "osm"
+  apiKey          String?
+  isActive        Boolean  @default(true)
+  usageLimitPerDay Int?
+  fallbackEnabled Boolean  @default(false)
+  updatedAt       DateTime @updatedAt
+
+  @@map("map_provider_configs")
+}
+
+// Audit logging for auth events
+model AuthLog {
+  id          String    @id @default(uuid())
+  userId      String?
+  email       String
+  action      String    // "login", "register", "logout", "refresh", "failed_login"
+  ipAddress   String?
+  userAgent   String?
+  success     Boolean
+  createdAt   DateTime  @default(now())
+
+  @@index([userId])
+  @@index([email])
+  @@index([createdAt])
+  @@map("auth_logs")
+}
+
+model ProximityAlert {
+  id             String   @id @default(uuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  busId          String
+  bus            Bus      @relation(fields: [busId], references: [id], onDelete: Cascade)
+  boardingStopId String
+  stop           Stop     @relation(fields: [boardingStopId], references: [id], onDelete: Cascade)
+  stopsThreshold Int      @default(2)
+  triggered      Boolean  @default(false)
+  createdAt      DateTime @default(now())
+
+  @@unique([userId, busId, boardingStopId])
+  @@map("proximity_alerts")
+}
+
+model EmergencyAlert {
+  id        String   @id @default(uuid())
+  busId     String?
+  busNumber String?
+  vehicleNo String?
+  latitude  Float
+  longitude Float
+  alertType String   // e.g., "SOS_BUTTON_TRIGGERED", "ACCIDENT", "SECURITY"
+  status    String   @default("ACTIVE") // "ACTIVE" | "RESOLVED"
+  createdAt DateTime @default(now())
+
+  @@map("emergency_alerts")
+}

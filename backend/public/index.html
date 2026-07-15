@@ -1,0 +1,2237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BusTrack Tamil Nadu - Real-Time Dashboard</title>
+  
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- Leaflet Map CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  
+  <!-- Styles -->
+  <style>
+    :root {
+      --bg-dark: #0b0f19;
+      --bg-card: rgba(17, 24, 39, 0.75);
+      --border-card: rgba(255, 255, 255, 0.08);
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --primary: #6366f1;
+      --primary-hover: #4f46e5;
+      --success: #10b981;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Outfit', sans-serif;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Header Styling */
+    header {
+      background: rgba(11, 15, 25, 0.85);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border-card);
+      padding: 0.85rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      z-index: 10;
+    }
+
+    header h1 {
+      font-size: 1.4rem;
+      font-weight: 700;
+      background: linear-gradient(135deg, #a5b4fc, #6366f1);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .header-controls {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .lang-switch {
+      background: rgba(30, 41, 59, 0.6);
+      border: 1px solid var(--border-card);
+      color: var(--text-main);
+      padding: 0.35rem 0.75rem;
+      border-radius: 8px;
+      font-size: 0.825rem;
+      font-weight: 500;
+      cursor: pointer;
+      outline: none;
+      transition: all 0.2s;
+    }
+
+    .lang-switch:hover {
+      border-color: var(--primary);
+    }
+
+    .status-badge {
+      font-size: 0.825rem;
+      padding: 0.35rem 0.85rem;
+      border-radius: 9999px;
+      background: rgba(16, 185, 129, 0.1);
+      color: var(--success);
+      border: 1px solid rgba(16, 185, 129, 0.2);
+      display: flex;
+      align-items: center;
+      gap: 0.375rem;
+    }
+
+    .status-badge.disconnected {
+      background: rgba(239, 68, 68, 0.1);
+      color: var(--danger);
+      border: 1px solid rgba(239, 68, 68, 0.2);
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background-color: currentColor;
+      box-shadow: 0 0 8px currentColor;
+    }
+
+    /* Main Layout */
+    .container {
+      flex: 1;
+      display: flex;
+      position: relative;
+      height: calc(100vh - 65px);
+    }
+
+    /* Map Space */
+    #map {
+      flex: 1;
+      height: 100%;
+      z-index: 1;
+    }
+
+    /* GPS Sandbox Styles */
+    .sandbox-toggle-btn {
+      position: absolute;
+      bottom: 1.5rem;
+      left: 26.5rem;
+      background: rgba(99, 102, 241, 0.95);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: white;
+      padding: 0.65rem 1.25rem;
+      border-radius: 9999px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      z-index: 999;
+      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      transition: all 0.2s ease;
+    }
+
+    .sandbox-toggle-btn:hover {
+      background: var(--primary-hover);
+      transform: translateY(-2px);
+    }
+
+    .sandbox-panel {
+      position: absolute;
+      bottom: 5rem;
+      left: 26.5rem;
+      width: 360px;
+      background: rgba(15, 23, 42, 0.9);
+      backdrop-filter: blur(20px);
+      border: 1px solid var(--border-card);
+      border-radius: 14px;
+      z-index: 998;
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      animation: slideUp 0.2s ease;
+    }
+
+    @keyframes slideUp {
+      from { transform: translateY(8px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+
+    .sandbox-header {
+      padding: 0.85rem 1.25rem;
+      background: rgba(15, 23, 42, 0.6);
+      border-bottom: 1px solid var(--border-card);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .sandbox-header h3 {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      gap: 0.375rem;
+    }
+
+    .sandbox-close {
+      cursor: pointer;
+      color: var(--text-muted);
+      font-size: 1.2rem;
+      font-weight: bold;
+      border: none;
+      background: transparent;
+    }
+
+    .sandbox-close:hover {
+      color: var(--text-main);
+    }
+
+    .sandbox-content {
+      padding: 1rem 1.25rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .sandbox-tabs {
+      display: flex;
+      background: rgba(15, 23, 42, 0.6);
+      border-radius: 8px;
+      padding: 3px;
+      border: 1px solid var(--border-card);
+    }
+
+    .sandbox-tab {
+      flex: 1;
+      text-align: center;
+      padding: 0.35rem;
+      border-radius: 6px;
+      font-size: 0.775rem;
+      font-weight: 600;
+      cursor: pointer;
+      color: var(--text-muted);
+      transition: all 0.2s;
+      user-select: none;
+    }
+
+    .sandbox-tab.active {
+      color: var(--text-main);
+      background: var(--primary);
+    }
+
+    .sandbox-section {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .sandbox-btn {
+      width: 100%;
+      background: var(--primary);
+      color: white;
+      border: none;
+      padding: 0.6rem;
+      border-radius: 8px;
+      font-size: 0.825rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .sandbox-btn:hover {
+      background: var(--primary-hover);
+    }
+
+    .sandbox-secondary-btn {
+      width: 100%;
+      background: rgba(30, 41, 59, 0.6);
+      color: var(--text-main);
+      border: 1px solid var(--border-card);
+      padding: 0.6rem;
+      border-radius: 8px;
+      font-size: 0.825rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      margin-top: 0.25rem;
+    }
+
+    .sandbox-secondary-btn:hover {
+      border-color: var(--primary);
+    }
+
+    .coords-row {
+      display: flex;
+      gap: 0.75rem;
+    }
+
+    .coords-col {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+
+    .sandbox-status {
+      font-size: 0.75rem;
+      color: var(--success);
+      min-height: 15px;
+      text-align: center;
+    }
+
+    /* Sidebar Floating Panel */
+    .sidebar {
+      position: absolute;
+      top: 1.5rem;
+      left: 1.5rem;
+      width: 390px;
+      max-height: calc(100% - 3rem);
+      background: var(--bg-card);
+      backdrop-filter: blur(20px);
+      border: 1px solid var(--border-card);
+      border-radius: 16px;
+      z-index: 10;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.6);
+      overflow: hidden;
+      transition: all 0.3s ease;
+    }
+
+    .sidebar-header {
+      padding: 1.25rem;
+      border-bottom: 1px solid var(--border-card);
+      display: flex;
+      flex-direction: column;
+      gap: 0.85rem;
+    }
+
+    /* Tab Switchers */
+    .search-tabs {
+      display: flex;
+      background: rgba(15, 23, 42, 0.6);
+      border-radius: 10px;
+      padding: 4px;
+      border: 1px solid var(--border-card);
+    }
+
+    .search-tab {
+      flex: 1;
+      text-align: center;
+      padding: 0.5rem;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      color: var(--text-muted);
+      transition: all 0.2s;
+      user-select: none;
+    }
+
+    .search-tab:hover {
+      color: var(--text-main);
+    }
+
+    .search-tab.active {
+      color: var(--text-main);
+      background: var(--primary);
+      box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+    }
+
+    /* Inputs */
+    .search-wrapper {
+      position: relative;
+    }
+
+    .search-input {
+      width: 100%;
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid var(--border-card);
+      border-radius: 10px;
+      padding: 0.75rem 1rem 0.75rem 2.5rem;
+      color: var(--text-main);
+      font-size: 0.95rem;
+      outline: none;
+      transition: all 0.2s;
+    }
+
+    .search-input:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.25);
+    }
+
+    .search-icon {
+      position: absolute;
+      left: 0.875rem;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-muted);
+      width: 16px;
+      height: 16px;
+      pointer-events: none;
+    }
+
+    /* Route Search Form */
+    .routing-form {
+      display: flex;
+      flex-direction: column;
+      gap: 0.85rem;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.375rem;
+      position: relative;
+    }
+
+    .form-label {
+      font-size: 0.725rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .autocomplete-dropdown {
+      position: absolute;
+      top: calc(100% + 4px);
+      left: 0;
+      right: 0;
+      background: #111827;
+      border: 1px solid var(--border-card);
+      border-radius: 10px;
+      max-height: 200px;
+      overflow-y: auto;
+      z-index: 50;
+      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+      display: none;
+    }
+
+    .autocomplete-item {
+      padding: 0.75rem 1rem;
+      font-size: 0.875rem;
+      cursor: pointer;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .autocomplete-item:hover {
+      background: rgba(99, 102, 241, 0.15);
+      color: #a5b4fc;
+    }
+
+    .autocomplete-item .stop-desc {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    /* Filters button and panel */
+    .filter-btn {
+      background: rgba(30, 41, 59, 0.4);
+      border: 1px solid var(--border-card);
+      border-radius: 10px;
+      color: var(--text-muted);
+      font-size: 0.825rem;
+      padding: 0.65rem 1rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      transition: all 0.2s;
+      font-weight: 500;
+    }
+
+    .filter-btn:hover {
+      color: var(--text-main);
+      border-color: var(--primary);
+    }
+
+    .filter-content {
+      display: none;
+      flex-direction: column;
+      gap: 0.85rem;
+      background: rgba(15, 23, 42, 0.4);
+      border: 1px solid var(--border-card);
+      border-radius: 10px;
+      padding: 1rem;
+      margin-top: 0.25rem;
+    }
+
+    .pill-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-top: 0.35rem;
+    }
+
+    .pill {
+      font-size: 0.75rem;
+      padding: 0.35rem 0.75rem;
+      border-radius: 9999px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border-card);
+      cursor: pointer;
+      color: var(--text-muted);
+      transition: all 0.2s;
+      font-weight: 500;
+    }
+
+    .pill:hover {
+      color: var(--text-main);
+      border-color: var(--primary);
+    }
+
+    .pill.active {
+      background: rgba(99, 102, 241, 0.18);
+      border-color: var(--primary);
+      color: #a5b4fc;
+    }
+
+    .toggle-container {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 0.5rem;
+      border-top: 1px solid var(--border-card);
+      padding-top: 0.75rem;
+    }
+
+    .toggle-switch {
+      position: relative;
+      display: inline-block;
+      width: 44px;
+      height: 22px;
+    }
+
+    .toggle-switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: rgba(255, 255, 255, 0.1);
+      transition: .3s;
+      border-radius: 22px;
+      border: 1px solid var(--border-card);
+    }
+
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 14px;
+      width: 14px;
+      left: 3px;
+      bottom: 3px;
+      background-color: var(--text-main);
+      transition: .3s;
+      border-radius: 50%;
+    }
+
+    input:checked + .slider {
+      background-color: var(--primary);
+    }
+
+    input:checked + .slider:before {
+      transform: translateX(22px);
+    }
+
+    .search-submit-btn {
+      background: var(--primary);
+      color: var(--text-main);
+      border: none;
+      border-radius: 10px;
+      padding: 0.85rem;
+      font-weight: 600;
+      font-size: 0.95rem;
+      cursor: pointer;
+      transition: all 0.2s;
+      box-shadow: 0 4px 14px rgba(99, 102, 241, 0.35);
+    }
+
+    .search-submit-btn:hover {
+      background: var(--primary-hover);
+      box-shadow: 0 6px 20px rgba(99, 102, 241, 0.55);
+    }
+
+    /* Bus List Scroll */
+    .bus-list {
+      overflow-y: auto;
+      flex: 1;
+    }
+
+    .bus-item {
+      padding: 1.15rem 1.25rem;
+      border-bottom: 1px solid var(--border-card);
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .bus-item:hover {
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    .bus-item.active {
+      background: rgba(99, 102, 241, 0.08);
+      border-left: 4px solid var(--primary);
+    }
+
+    .bus-info {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+    }
+
+    .bus-badge {
+      font-size: 1.1rem;
+      font-weight: 650;
+      color: var(--text-main);
+    }
+
+    .bus-route-name {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      line-height: 1.3;
+    }
+
+    .bus-status-tag {
+      font-size: 0.725rem;
+      padding: 0.15rem 0.5rem;
+      border-radius: 4px;
+      text-transform: uppercase;
+      font-weight: 600;
+    }
+
+    .bus-status-tag.active {
+      background: rgba(16, 185, 129, 0.15);
+      color: var(--success);
+    }
+
+    /* Info Overlay Panel on the Right */
+    .info-panel {
+      position: absolute;
+      top: 1.5rem;
+      right: 1.5rem;
+      width: 370px;
+      background: var(--bg-card);
+      backdrop-filter: blur(20px);
+      border: 1px solid var(--border-card);
+      border-radius: 16px;
+      z-index: 10;
+      padding: 1.5rem;
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.6);
+      display: none;
+      flex-direction: column;
+      gap: 1.25rem;
+      transition: all 0.3s ease;
+    }
+
+    .info-panel-title {
+      font-size: 1.25rem;
+      font-weight: 600;
+      border-bottom: 1px solid var(--border-card);
+      padding-bottom: 0.75rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .info-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .info-label {
+      color: var(--text-muted);
+      font-size: 0.85rem;
+    }
+
+    .info-value {
+      font-weight: 500;
+      font-size: 0.95rem;
+    }
+
+    .highlight-value {
+      color: #818cf8;
+      font-weight: 700;
+      font-size: 1.35rem;
+    }
+
+    .progress-bar-container {
+      background: rgba(15, 23, 42, 0.6);
+      height: 8px;
+      border-radius: 9999px;
+      overflow: hidden;
+      margin-top: 0.5rem;
+    }
+
+    .progress-bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--primary), #a5b4fc);
+      width: 0%;
+      transition: width 0.5s ease-out;
+    }
+
+    .stop-select-msg {
+      background: rgba(99, 102, 241, 0.08);
+      border: 1px dashed rgba(99, 102, 241, 0.25);
+      padding: 0.85rem;
+      border-radius: 10px;
+      font-size: 0.825rem;
+      color: #a5b4fc;
+      text-align: center;
+      line-height: 1.45;
+    }
+
+    .traffic-indicator {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-weight: 700;
+      padding: 0.25rem 0.65rem;
+      border-radius: 6px;
+      font-size: 0.825rem;
+    }
+
+    .traffic-heavy {
+      background: rgba(239, 68, 68, 0.15);
+      color: var(--danger);
+    }
+
+    .traffic-moderate {
+      background: rgba(245, 158, 11, 0.15);
+      color: var(--warning);
+    }
+
+    .traffic-light {
+      background: rgba(16, 185, 129, 0.15);
+      color: var(--success);
+    }
+
+    /* Map custom layout override */
+    .custom-stop-marker {
+      transition: all 0.2s;
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(255, 255, 255, 0.2);
+    }
+
+    /* SOS Emergency Styles */
+    .sos-btn {
+      position: absolute;
+      bottom: 1.5rem;
+      left: 38.5rem;
+      background: linear-gradient(135deg, #ef4444, #b91c1c);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: white;
+      padding: 0.65rem 1.25rem;
+      border-radius: 9999px;
+      font-size: 0.85rem;
+      font-weight: 700;
+      cursor: pointer;
+      z-index: 999;
+      box-shadow: 0 10px 15px -3px rgba(239, 68, 68, 0.4), 0 4px 6px -2px rgba(239, 68, 68, 0.2);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      transition: all 0.2s ease;
+      animation: pulse-emergency 2s infinite;
+    }
+
+    @keyframes pulse-emergency {
+      0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+      70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+    }
+
+    .sos-btn:hover {
+      background: #dc2626;
+      transform: translateY(-2px);
+    }
+
+    /* Modal Overlay */
+    .overlay-modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(15, 23, 42, 0.8);
+      backdrop-filter: blur(12px);
+      z-index: 10000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal-content {
+      background: rgba(30, 41, 59, 0.95);
+      border: 1px solid var(--border-card);
+      border-radius: 16px;
+      width: 90%;
+      max-width: 450px;
+      padding: 2rem;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+      animation: modalScale 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    @keyframes modalScale {
+      from { transform: scale(0.95); opacity: 0; }
+      to { transform: scale(1); opacity: 1; }
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1 id="app-title-container" data-i18n="app_title">🚌 BusTrack Tamil Nadu</h1>
+    <div class="header-controls">
+      <select id="lang-select" class="lang-switch" onchange="toggleLang(this.value)">
+        <option value="en">English</option>
+        <option value="ta">தமிழ் (Tamil)</option>
+      </select>
+      <div id="connection-status" class="status-badge disconnected">
+        <div class="status-dot"></div>
+        <span id="status-text">Disconnected</span>
+      </div>
+    </div>
+  </header>
+
+  <div class="container">
+    <div class="sidebar">
+      <div class="sidebar-header">
+        <div class="search-tabs">
+          <div class="search-tab active" id="tab-bus" onclick="switchTab('bus')" data-i18n="bus_route_tab">Bus/Route</div>
+          <div class="search-tab" id="tab-routing" onclick="switchTab('routing')" data-i18n="find_routes_tab">Find Routes</div>
+        </div>
+
+        <!-- Tab 1: Search by Bus/Route -->
+        <div id="search-bus-container">
+          <div class="search-wrapper">
+            <svg class="search-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.637 10.637z" />
+            </svg>
+            <input type="text" id="bus-search" class="search-input" data-i18n-placeholder="search_placeholder" placeholder="Search by Bus No. (e.g. 47C)...">
+          </div>
+        </div>
+
+        <!-- Tab 2: Find Routes (Source to Destination) -->
+        <div id="search-routing-container" style="display: none;">
+          <form class="routing-form" onsubmit="event.preventDefault(); searchRoutes();">
+            <div class="form-group">
+              <label class="form-label" data-i18n="from_label">From</label>
+              <input type="text" id="route-source" class="search-input" data-i18n-placeholder="source_placeholder" placeholder="Enter starting point..." autocomplete="off">
+              <div id="source-autocomplete" class="autocomplete-dropdown"></div>
+            </div>
+            <div class="form-group">
+              <label class="form-label" data-i18n="to_label">To</label>
+              <input type="text" id="route-destination" class="search-input" data-i18n-placeholder="dest_placeholder" placeholder="Enter destination..." autocomplete="off">
+              <div id="destination-autocomplete" class="autocomplete-dropdown"></div>
+            </div>
+            
+            <button type="button" class="filter-btn" onclick="toggleFilters()">
+              <span data-i18n="filters_header">Advanced Filters</span>
+              <span id="filter-chevron">▼</span>
+            </button>
+
+            <div id="filter-content" class="filter-content">
+              <div>
+                <label class="form-label" data-i18n="corporation_label">Corporation</label>
+                <div class="pill-group" id="filter-corp">
+                  <div class="pill" onclick="togglePill(this)" data-value="MTC">MTC</div>
+                  <div class="pill" onclick="togglePill(this)" data-value="SETC">SETC</div>
+                  <div class="pill" onclick="togglePill(this)" data-value="TNSTC_VILLUPURAM">TNSTC-VL</div>
+                  <div class="pill" onclick="togglePill(this)" data-value="TNSTC_COIMBATORE">TNSTC-CBE</div>
+                  <div class="pill" onclick="togglePill(this)" data-value="TNSTC_MADURAI">TNSTC-MDU</div>
+                  <div class="pill" onclick="togglePill(this)" data-value="TNSTC_KUMBAKONAM">TNSTC-KUM</div>
+                </div>
+              </div>
+
+              <div>
+                <label class="form-label" data-i18n="service_type_label">Service Type</label>
+                <div class="pill-group" id="filter-service">
+                  <div class="pill" onclick="togglePill(this)" data-value="ORDINARY" data-i18n="ordinary">Ordinary</div>
+                  <div class="pill" onclick="togglePill(this)" data-value="DELUXE" data-i18n="deluxe">Deluxe</div>
+                  <div class="pill" onclick="togglePill(this)" data-value="ULTRA_DELUXE" data-i18n="ultra_deluxe">Ultra Deluxe</div>
+                  <div class="pill" onclick="togglePill(this)" data-value="AC_SLEEPER" data-i18n="ac_sleeper">AC Sleeper</div>
+                  <div class="pill" onclick="togglePill(this)" data-value="VOLVO" data-i18n="volvo">Volvo</div>
+                </div>
+              </div>
+
+              <div class="toggle-container">
+                <label class="form-label" style="margin-bottom: 0;" data-i18n="free_scheme_label">Vidiyal Payanam (Free for Women)</label>
+                <label class="toggle-switch">
+                  <input type="checkbox" id="filter-free-women">
+                  <span class="slider"></span>
+                </label>
+              </div>
+            </div>
+
+            <button type="submit" class="search-submit-btn" data-i18n="search_btn">Find Buses</button>
+          </form>
+        </div>
+      </div>
+      <div id="bus-list" class="bus-list">
+        <!-- Dynamic list items -->
+      </div>
+    </div>
+
+    <!-- Map container -->
+    <div id="map"></div>
+
+    <!-- GPS Sandbox Panel -->
+    <button id="sandbox-toggle-btn" class="sandbox-toggle-btn" onclick="toggleSandbox()">
+      <span>🧪 GPS Sandbox</span>
+    </button>
+    <button id="sos-btn" class="sos-btn" onclick="triggerSosAlert()">
+      <span>🚨 SOS Emergency</span>
+    </button>
+    <div id="sandbox-panel" class="sandbox-panel" style="display: none;">
+      <div class="sandbox-header">
+        <h3>🧪 GPS Sandbox (Testing)</h3>
+        <button class="sandbox-close" onclick="toggleSandbox()">×</button>
+      </div>
+      <div class="sandbox-content">
+        <div class="sandbox-tabs">
+          <div class="sandbox-tab active" id="sb-tab-user" onclick="switchSandboxTab('user')">My GPS (User)</div>
+          <div class="sandbox-tab" id="sb-tab-bus" onclick="switchSandboxTab('bus')">Friend GPS (Bus)</div>
+        </div>
+
+        <!-- Tab 1: User GPS -->
+        <div id="sb-user-section" class="sandbox-section">
+          <div class="coords-row">
+            <div class="coords-col">
+              <label class="form-label" style="font-size: 0.65rem;">My Latitude</label>
+              <input type="number" id="sandbox-user-lat" class="search-input" style="padding-left: 0.75rem; font-size: 0.85rem;" placeholder="e.g. 13.0674" step="any">
+            </div>
+            <div class="coords-col">
+              <label class="form-label" style="font-size: 0.65rem;">My Longitude</label>
+              <input type="number" id="sandbox-user-lon" class="search-input" style="padding-left: 0.75rem; font-size: 0.85rem;" placeholder="e.g. 80.2058" step="any">
+            </div>
+          </div>
+          <div class="toggle-container" style="margin-top: 0.25rem; margin-bottom: 0.25rem;">
+            <label class="form-label" style="margin-bottom: 0; font-size: 0.75rem; color: var(--text-muted);">📡 Live GPS Tracking (watchPosition)</label>
+            <label class="toggle-switch">
+              <input type="checkbox" id="sb-live-tracking-toggle" onchange="toggleLiveGPSTracking(this.checked)">
+              <span class="slider"></span>
+            </label>
+          </div>
+          <button class="sandbox-btn" onclick="applyUserGPS()">📍 Pin GPS Location</button>
+        </div>
+
+        <!-- Tab 2: Bus GPS -->
+        <div id="sb-bus-section" class="sandbox-section" style="display: none;">
+          <div class="form-group">
+            <label class="form-label" style="font-size: 0.65rem;">Select Bus</label>
+            <select id="sandbox-bus-select" class="search-input" style="padding-left: 0.75rem; font-size: 0.85rem; padding-right: 0.75rem; appearance: auto;" onchange="syncSandboxBusPosition()">
+              <!-- Options loaded dynamically -->
+            </select>
+          </div>
+          <div class="coords-row">
+            <div class="coords-col">
+              <label class="form-label" style="font-size: 0.65rem;">Friend's Lat</label>
+              <input type="number" id="sandbox-bus-lat" class="search-input" style="padding-left: 0.75rem; font-size: 0.85rem;" placeholder="e.g. 13.0712" step="any">
+            </div>
+            <div class="coords-col">
+              <label class="form-label" style="font-size: 0.65rem;">Friend's Lon</label>
+              <input type="number" id="sandbox-bus-lon" class="search-input" style="padding-left: 0.75rem; font-size: 0.85rem;" placeholder="e.g. 80.2184" step="any">
+            </div>
+          </div>
+          <button class="sandbox-btn" onclick="applyBusGPS()">🚌 Set Bus Position</button>
+        </div>
+
+        <div id="sandbox-status" class="sandbox-status"></div>
+      </div>
+    </div>
+
+    <!-- Right info panel displaying ETA and distance -->
+    <div id="info-panel" class="info-panel">
+      <div class="info-panel-title" id="panel-bus-heading">
+        <span data-i18n="bus_info_title">Bus Details</span>: <span id="panel-bus-no">-</span>
+      </div>
+      
+      <div class="info-row">
+        <span class="info-label" data-i18n="route_label">Route</span>
+        <span class="info-value" id="panel-route-name">-</span>
+      </div>
+
+      <div class="info-row">
+        <span class="info-label" data-i18n="vehicle_no_label">Vehicle Registration</span>
+        <span class="info-value" id="panel-vehicle-no">-</span>
+      </div>
+
+      <div class="info-row">
+        <span class="info-label" data-i18n="current_location_label">Current Location</span>
+        <span class="info-value" id="panel-current-location">Pending Update</span>
+      </div>
+
+      <div class="stop-select-msg" id="stop-instruction" data-i18n="boarding_instruction">
+        👉 Click on any Stop Marker along the route to set your boarding point.
+      </div>
+
+      <!-- Live metrics once stop is selected -->
+      <div id="eta-metrics" style="display:none; flex-direction:column; gap:1rem; border-top: 1px solid var(--border-card); padding-top: 1.25rem; margin-top: 0.5rem;">
+        <!-- Dual Delivery-Style tracking Cards -->
+        <div style="background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border-card); border-radius: 12px; padding: 1rem; display: flex; flex-direction: column; gap: 0.75rem;">
+          
+          <!-- User / Boarding ETA Card -->
+          <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px dashed var(--border-card); padding-bottom: 0.75rem;">
+            <div style="display: flex; flex-direction: column; gap: 0.25rem;">
+              <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em;" data-i18n="time_to_user">Time to reach User</span>
+              <span style="font-size: 0.825rem; font-weight: 600; color: var(--text-main); display: flex; align-items: center; gap: 4px;">
+                📍 <span id="panel-boarding-stop-name">-</span>
+              </span>
+            </div>
+            <div style="text-align: right; display: flex; flex-direction: column; gap: 0.15rem;">
+              <span style="font-size: 1.15rem; font-weight: 800; color: var(--success);" id="panel-eta-user">-</span>
+              <span style="font-size: 0.75rem; color: var(--text-muted);" id="panel-distance-user">-</span>
+            </div>
+          </div>
+
+          <!-- Destination ETA Card -->
+          <div style="display: flex; align-items: center; justify-content: space-between; padding-top: 0.25rem;">
+            <div style="display: flex; flex-direction: column; gap: 0.25rem;">
+              <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em;" data-i18n="time_to_dest">Time to reach Destination</span>
+              <span style="font-size: 0.825rem; font-weight: 600; color: var(--text-main); display: flex; align-items: center; gap: 4px;">
+                🏁 <span id="panel-dest-stop-name">-</span>
+              </span>
+            </div>
+            <div style="text-align: right; display: flex; flex-direction: column; gap: 0.15rem;">
+              <span style="font-size: 1.15rem; font-weight: 800; color: var(--primary);" id="panel-eta-destination">-</span>
+              <span style="font-size: 0.75rem; color: var(--text-muted);" id="panel-distance-destination">-</span>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Stop Progress Details -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-top: 0.25rem;">
+          <div style="background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border-card); border-radius: 8px; padding: 0.5rem 0.75rem;">
+            <span style="font-size: 0.7rem; color: var(--text-muted); display: block;" data-i18n="stops_to_user">Stops to Boarding</span>
+            <span style="font-size: 0.95rem; font-weight: 700; color: var(--text-main);" id="panel-stops-count">-</span>
+          </div>
+          <div style="background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border-card); border-radius: 8px; padding: 0.5rem 0.75rem;">
+            <span style="font-size: 0.7rem; color: var(--text-muted); display: block;" data-i18n="stops_to_dest">Stops to Destination</span>
+            <span style="font-size: 0.95rem; font-weight: 700; color: var(--text-main);" id="panel-stops-destination">-</span>
+          </div>
+        </div>
+
+        <div class="info-row" style="margin-top: 0.25rem;">
+          <span class="info-label" data-i18n="traffic_status">Traffic Adjusted Status</span>
+          <span id="panel-traffic-status" class="traffic-indicator">-</span>
+        </div>
+
+        <div>
+          <div class="info-row">
+            <span class="info-label" data-i18n="route_progress">Route Progress</span>
+            <span class="info-value" id="panel-progress-percent">0%</span>
+          </div>
+          <div class="progress-bar-container">
+            <div class="progress-bar-fill" id="panel-progress-bar"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Stop PIS Board Widget -->
+      <div id="pis-board" style="display:none; flex-direction:column; gap:0.75rem; border-top: 1px solid var(--border-card); padding-top: 1.25rem; margin-top: 1.25rem;">
+        <h3 style="font-size: 0.9rem; color: #facc15; display:flex; align-items:center; gap:0.5rem; margin:0;">
+          📺 Smart PIS departures board
+        </h3>
+        <div style="font-size:0.75rem; color:var(--text-muted); margin-bottom: 0.25rem;">Live upcoming arrivals at: <b id="pis-stop-name">-</b></div>
+        <div id="pis-departures-list" style="display:flex; flex-direction:column; gap:0.5rem; max-height: 200px; overflow-y:auto;">
+          <!-- Populated dynamically -->
+        </div>
+      </div>
+
+      <!-- Ticket Purchase action -->
+      <button id="buy-ticket-btn" class="sandbox-btn" style="background: linear-gradient(135deg, #10b981, #047857); margin-top: 1.25rem; width: 100%; border: none; font-weight: bold;" onclick="openTicketModal()">
+        🎟️ Buy Transit Mobile Ticket
+      </button>
+    </div>
+  </div>
+
+  <!-- Leaflet Map JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  
+  <!-- Socket.IO Client JS -->
+  <script src="/socket.io/socket.io.js"></script>
+
+  <!-- Script Logic -->
+  <script>
+    // Initialize Socket.IO
+    const socket = io();
+
+    // Map instances
+    let map;
+    let stopMarkers = [];
+    let routePolyline = null;
+    let busMarker = null;
+    let userMarker = null;
+
+    // State Variables
+    let selectedBus = null;
+    let selectedRouteDetails = null;
+    let selectedBoardingStop = null;
+    let buses = [];
+    let currentTab = 'bus';
+    let currentLang = 'en';
+
+    // Translations Dictionary
+    const translations = {
+      en: {
+        app_title: "🚌 BusTrack Tamil Nadu",
+        search_placeholder: "Search by Bus No. (e.g. 47C)...",
+        source_placeholder: "Enter starting point...",
+        dest_placeholder: "Enter destination...",
+        bus_route_tab: "Bus/Route",
+        find_routes_tab: "Find Routes",
+        from_label: "From",
+        to_label: "To",
+        corporation_label: "Corporation",
+        service_type_label: "Service Type",
+        free_scheme_label: "Vidiyal Payanam (Free for Women)",
+        search_btn: "Find Buses",
+        no_buses_found: "No routes or buses found",
+        awaiting_coords: "Awaiting coordinates",
+        boarding_instruction: "👉 Click on any Stop Marker along the route to set your boarding point.",
+        boarding_point: "📍 Boarding Point:",
+        calculating_eta: "Calculating ETA...",
+        stops_remaining: "Stops Remaining",
+        distance_to_bus: "Distance to Bus",
+        estimated_time: "Estimated Time (ETA)",
+        traffic_status: "Traffic Adjusted Status",
+        route_progress: "Route Progress",
+        filters_header: "Advanced Filters",
+        bus_info_title: "Bus Details",
+        route_label: "Route",
+        vehicle_no_label: "Vehicle Registration",
+        current_location_label: "Current Location",
+        free_tag: "FREE",
+        low_floor: "♿ Low Floor",
+        time_to_user: "Time to reach User",
+        time_to_dest: "Time to reach Destination",
+        stops_to_user: "Stops to Boarding",
+        stops_to_dest: "Stops to Destination",
+        ordinary: "Ordinary",
+        deluxe: "Deluxe",
+        ultra_deluxe: "Ultra Deluxe",
+        ac_sleeper: "AC Sleeper",
+        volvo: "Volvo",
+        stops_count_suffix: "stops"
+      },
+      ta: {
+        app_title: "🚌 பஸ்டிராக் தமிழ்நாடு",
+        search_placeholder: "பேருந்து எண் தேடவும் (எ.கா: 47C)...",
+        source_placeholder: "புறப்படும் இடம்...",
+        dest_placeholder: "சேருமிடம்...",
+        bus_route_tab: "பேருந்து எண்",
+        find_routes_tab: "வழித்தடம் தேட",
+        from_label: "இருந்து",
+        to_label: "வரை",
+        corporation_label: "போக்குவரத்து கழகம்",
+        service_type_label: "பேருந்து வகை",
+        free_scheme_label: "விடியல் பயணம் (பெண்களுக்கு இலவசம்)",
+        search_btn: "பேருந்துகளைத் தேடுக",
+        no_buses_found: "பேருந்துகள் அல்லது வழித்தடங்கள் இல்லை",
+        awaiting_coords: "ஜிபிஎஸ் தகவலுக்காக காத்திருக்கிறது",
+        boarding_instruction: "👉 வரைபடத்தில் ஏதேனும் ஒரு நிறுத்தத்தை கிளிக் செய்து உங்கள் இருப்பிடத்தை தேர்வு செய்யவும்.",
+        boarding_point: "📍 ஏறும் இடம்:",
+        calculating_eta: "நேரம் கணக்கிடப்படுகிறது...",
+        stops_remaining: "மீதமுள்ள நிறுத்தங்கள்",
+        distance_to_bus: "பேருந்துக்கான தொலைவு",
+        estimated_time: "மதிப்பிடப்பட்ட நேரம் (ETA)",
+        traffic_status: "போக்குவரத்து நிலை",
+        route_progress: "பயண முன்னேற்றம்",
+        filters_header: "கூடுதல் வடிகட்டிகள்",
+        bus_info_title: "பேருந்து விவரங்கள்",
+        route_label: "வழித்தடம்",
+        vehicle_no_label: "வண்டி எண்",
+        current_location_label: "தற்போதைய இருப்பிடம்",
+        free_tag: "இலவசம்",
+        low_floor: "♿ குறைந்த தரை",
+        time_to_user: "பயனர் வரை செல்ல ஆகும் நேரம்",
+        time_to_dest: "சேருமிடம் சென்றடைய ஆகும் நேரம்",
+        stops_to_user: "ஏறும் இடம் வரையிலான நிறுத்தங்கள்",
+        stops_to_dest: "சேருமிடம் வரையிலான நிறுத்தங்கள்",
+        ordinary: "சாதாரண",
+        deluxe: "டீலக்ஸ்",
+        ultra_deluxe: "அல்ட்ரா டீலக்ஸ்",
+        ac_sleeper: "ஏசி ஸ்லீப்பர்",
+        volvo: "வோல்வோ",
+        stops_count_suffix: "நிறுத்தங்கள்"
+      }
+    };
+
+    // Elements
+    const searchInput = document.getElementById('bus-search');
+    const busList = document.getElementById('bus-list');
+    const infoPanel = document.getElementById('info-panel');
+    const connectionBadge = document.getElementById('connection-status');
+    const statusText = document.getElementById('status-text');
+
+    // Setup map
+    function initMap() {
+      // Tamil Nadu Centroid (Trichy area)
+      map = L.map('map', { zoomControl: false }).setView([10.7905, 78.7047], 8);
+      
+      L.control.zoom({ position: 'bottomright' }).addTo(map);
+
+      // CartoDB Dark Matter tiles
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+        subdomains: 'abcd',
+        maxZoom: 20
+      }).addTo(map);
+    }
+
+    // Bilingual translation toggles
+    function toggleLang(lang) {
+      currentLang = lang;
+      updateTranslations();
+      if (currentTab === 'routing') {
+        searchRoutes();
+      } else {
+        loadBuses(searchInput.value);
+      }
+    }
+
+    function updateTranslations() {
+      document.querySelectorAll('[data-i18n]').forEach(el => {
+        const key = el.getAttribute('data-i18n');
+        if (translations[currentLang][key]) {
+          if (el.id === 'panel-bus-heading') {
+            el.innerHTML = `${translations[currentLang]['bus_info_title']}: <span id="panel-bus-no">${selectedBus ? 'Bus ' + selectedBus.busNumber : '-'}</span>`;
+          } else {
+            el.textContent = translations[currentLang][key];
+          }
+        }
+      });
+
+      document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+        const key = el.getAttribute('data-i18n-placeholder');
+        if (translations[currentLang][key]) {
+          el.setAttribute('placeholder', translations[currentLang][key]);
+        }
+      });
+
+      if (selectedBoardingStop) {
+        document.getElementById('stop-instruction').innerHTML = `📍 ${translations[currentLang]['boarding_point']} <b>${selectedBoardingStop.name}</b><br><span style="font-size:0.75rem; color: var(--text-muted);">${translations[currentLang]['calculating_eta']}</span>`;
+      }
+    }
+
+    // Tab switches
+    function switchTab(tab) {
+      currentTab = tab;
+      document.getElementById('tab-bus').classList.toggle('active', tab === 'bus');
+      document.getElementById('tab-routing').classList.toggle('active', tab === 'routing');
+      
+      document.getElementById('search-bus-container').style.display = tab === 'bus' ? 'block' : 'none';
+      document.getElementById('search-routing-container').style.display = tab === 'routing' ? 'block' : 'none';
+      
+      // Clear selections and map
+      busList.innerHTML = '';
+      clearMapLayers();
+      infoPanel.style.display = 'none';
+      selectedBus = null;
+      selectedRouteDetails = null;
+      selectedBoardingStop = null;
+
+      if (tab === 'bus') {
+        loadBuses();
+      }
+    }
+
+    function toggleFilters() {
+      const content = document.getElementById('filter-content');
+      const isVisible = content.style.display === 'flex';
+      content.style.display = isVisible ? 'none' : 'flex';
+      document.getElementById('filter-chevron').textContent = isVisible ? '▼' : '▲';
+    }
+
+    function togglePill(pill) {
+      pill.classList.toggle('active');
+    }
+
+    // Setup autocomplete dropdowns
+    function setupAutocomplete(inputId, dropdownId) {
+      const input = document.getElementById(inputId);
+      const dropdown = document.getElementById(dropdownId);
+
+      input.addEventListener('input', async () => {
+        const val = input.value.trim();
+        if (val.length < 2) {
+          dropdown.style.display = 'none';
+          return;
+        }
+
+        try {
+          const res = await fetch(`/v1/routes/stops?search=${encodeURIComponent(val)}`);
+          const result = await res.json();
+          if (result.success && result.data.length > 0) {
+            dropdown.innerHTML = '';
+            result.data.forEach(stop => {
+              const div = document.createElement('div');
+              div.className = 'autocomplete-item';
+              div.innerHTML = `
+                <span>${stop.name}</span>
+                <span class="stop-desc">${stop.district ? stop.district.name : 'Tamil Nadu'}</span>
+              `;
+              div.onclick = () => {
+                input.value = stop.name;
+                dropdown.style.display = 'none';
+              };
+              dropdown.appendChild(div);
+            });
+            dropdown.style.display = 'block';
+          } else {
+            dropdown.style.display = 'none';
+          }
+        } catch (err) {
+          console.error(err);
+        }
+      });
+
+      document.addEventListener('click', (e) => {
+        if (e.target !== input && e.target !== dropdown) {
+          dropdown.style.display = 'none';
+        }
+      });
+    }
+
+    // Search routes matching criteria
+    async function searchRoutes() {
+      const sourceVal = document.getElementById('route-source').value.trim();
+      const destVal = document.getElementById('route-destination').value.trim();
+
+      if (!sourceVal || !destVal) return;
+
+      const selectedCorps = Array.from(document.querySelectorAll('#filter-corp .pill.active')).map(p => p.getAttribute('data-value'));
+      const selectedServices = Array.from(document.querySelectorAll('#filter-service .pill.active')).map(p => p.getAttribute('data-value'));
+      const isFreeForWomen = document.getElementById('filter-free-women').checked;
+
+      let url = `/v1/routes/search?source=${encodeURIComponent(sourceVal)}&destination=${encodeURIComponent(destVal)}`;
+      if (selectedCorps.length > 0) {
+        url += `&corporation=${selectedCorps[0]}`;
+      }
+      if (selectedServices.length > 0) {
+        url += `&serviceType=${selectedServices[0]}`;
+      }
+      if (isFreeForWomen) {
+        url += `&isFreeForWomen=true`;
+      }
+
+      try {
+        const response = await fetch(url);
+        const result = await response.json();
+        if (result.success) {
+          renderRoutesList(result.data);
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    function renderRoutesList(routes) {
+      busList.innerHTML = '';
+      if (routes.length === 0) {
+        busList.innerHTML = `<div style="padding: 1.5rem; text-align: center; color: var(--text-muted);">${translations[currentLang]['no_buses_found']}</div>`;
+        return;
+      }
+
+      routes.forEach(route => {
+        const routeItem = document.createElement('div');
+        routeItem.className = 'bus-item';
+        routeItem.onclick = () => selectRoute(route);
+
+        const corpName = route.corporation.replace('TNSTC_', 'TNSTC-');
+        
+        routeItem.innerHTML = `
+          <div class="bus-info" style="width: 100%;">
+            <div style="display:flex; justify-content:space-between; align-items:center; width:100%;">
+              <span class="bus-badge">${route.number}</span>
+              <span class="bus-status-tag active" style="font-size:0.7rem; padding:0.1rem 0.45rem;">${corpName}</span>
+            </div>
+            <span class="bus-route-name" style="margin-top: 0.25rem; font-weight: 500;">${route.name}</span>
+            <div style="margin-top: 0.5rem; font-size:0.75rem; color: var(--text-muted); display:flex; gap:0.5rem;">
+              <span>• ${route.stops.length} ${translations[currentLang]['stops_count_suffix']}</span>
+              <span>• ${route.buses.length} active</span>
+            </div>
+          </div>
+        `;
+        busList.appendChild(routeItem);
+      });
+    }
+
+    async function selectRoute(route) {
+      selectedRouteDetails = route;
+      selectedBoardingStop = null;
+      clearMapLayers();
+      plotRouteOnMap(route);
+
+      // Back navigation pill
+      busList.innerHTML = `
+        <div style="padding:0.75rem 1.25rem; font-size:0.8rem; color:var(--primary); font-weight:600; cursor:pointer; border-bottom:1px solid var(--border-card); display:flex; align-items:center; gap:0.5rem;" onclick="searchRoutes()">
+          ◀ ${currentLang === 'en' ? 'Back to Routes' : 'வழித்தடங்களுக்குத் திரும்பு'}
+        </div>
+      `;
+
+      if (route.buses.length === 0) {
+        const div = document.createElement('div');
+        div.style.cssText = 'padding: 1.5rem; text-align: center; color: var(--text-muted); font-size:0.875rem;';
+        div.textContent = currentLang === 'en' ? 'No active buses on this route right now' : 'இந்த வழித்தடத்தில் தற்போது பேருந்துகள் இயங்கவில்லை';
+        busList.appendChild(div);
+        return;
+      }
+
+      route.buses.forEach(bus => {
+        const item = document.createElement('div');
+        item.className = 'bus-item';
+        item.onclick = () => selectBusFromRoute(bus, route);
+
+        const freeBadge = bus.isFreeForWomen ? `<span style="font-size:0.65rem; background:rgba(16,185,129,0.15); color:var(--success); padding:2px 6px; border-radius:4px; margin-left:0.5rem; font-weight:600;">${translations[currentLang]['free_tag']}</span>` : '';
+        const lowFloorBadge = bus.isLowFloor ? `<span style="font-size:0.65rem; background:rgba(99,102,241,0.15); color:#818cf8; padding:2px 6px; border-radius:4px; margin-left:0.5rem; font-weight:600;">${translations[currentLang]['low_floor']}</span>` : '';
+
+        item.innerHTML = `
+          <div class="bus-info">
+            <span class="bus-badge" style="font-size:0.95rem; display:flex; align-items:center; flex-wrap:wrap; gap:0.25rem;">Bus ${bus.busNumber} ${freeBadge} ${lowFloorBadge}</span>
+            <span class="bus-route-name">${bus.vehicleNo} | ${bus.serviceType.replace('_', ' ')}</span>
+          </div>
+          <span class="bus-status-tag active">ACTIVE</span>
+        `;
+        busList.appendChild(item);
+      });
+
+      if (route.buses.length > 0) {
+        selectBusFromRoute(route.buses[0], route);
+      }
+    }
+
+    function selectBusFromRoute(bus, route) {
+      if (selectedBus) {
+        socket.emit('unsubscribe:bus', { busId: selectedBus.id });
+      }
+      selectedBus = bus;
+      selectedBoardingStop = null;
+      document.getElementById('pis-board').style.display = 'none';
+      
+      infoPanel.style.display = 'flex';
+      document.getElementById('panel-bus-no').textContent = bus.busNumber;
+      document.getElementById('panel-route-name').textContent = route.name;
+      document.getElementById('panel-vehicle-no').textContent = bus.vehicleNo;
+      document.getElementById('panel-current-location').textContent = bus.currentPosition 
+        ? `${bus.currentPosition.lat.toFixed(5)}, ${bus.currentPosition.lon.toFixed(5)}`
+        : translations[currentLang]['awaiting_coords'];
+
+      document.getElementById('eta-metrics').style.display = 'none';
+      document.getElementById('stop-instruction').style.display = 'block';
+      document.getElementById('stop-instruction').textContent = translations[currentLang]['boarding_instruction'];
+
+      document.querySelectorAll('.bus-item').forEach(el => {
+        el.classList.remove('active');
+        if (el.innerHTML.includes(bus.vehicleNo)) {
+          el.classList.add('active');
+        }
+      });
+
+      socket.emit('subscribe:bus', { busId: bus.id });
+
+      if (bus.currentPosition) {
+        updateBusLocationOnMap(bus.currentPosition);
+      }
+    }
+
+    // Socket listeners
+    socket.on('connect', () => {
+      connectionBadge.className = 'status-badge';
+      statusText.textContent = 'Connected';
+    });
+
+    socket.on('disconnect', () => {
+      connectionBadge.className = 'status-badge disconnected';
+      statusText.textContent = 'Disconnected';
+    });
+
+    socket.on('bus:position', (position) => {
+      if (selectedBus && selectedBus.id === position.busId) {
+        updateBusLocationOnMap(position);
+        if (selectedBoardingStop) {
+          requestLiveETA();
+        }
+      }
+    });
+
+    socket.on('bus:eta', (eta) => {
+      if (selectedBus && selectedBus.id === eta.busId && selectedBoardingStop && selectedBoardingStop.id === eta.boardingStopId) {
+        document.getElementById('eta-metrics').style.display = 'flex';
+        document.getElementById('stop-instruction').style.display = 'none';
+
+        const now = new Date();
+
+        const boardingEtaDate = new Date(eta.etaToBoarding);
+        const diffMsUser = boardingEtaDate - now;
+        const diffMinsUser = Math.max(Math.ceil(diffMsUser / 60000), 0);
+        document.getElementById('panel-eta-user').textContent = `${diffMinsUser} ${translations[currentLang]['mins_suffix'] || 'mins'}`;
+        document.getElementById('panel-distance-user').textContent = `${eta.distanceToBoardingKm || 0} km`;
+
+        const destEtaDate = new Date(eta.etaToDestination);
+        const diffMsDest = destEtaDate - now;
+        const diffMinsDest = Math.max(Math.ceil(diffMsDest / 60000), 0);
+        document.getElementById('panel-eta-destination').textContent = `${diffMinsDest} ${translations[currentLang]['mins_suffix'] || 'mins'}`;
+        document.getElementById('panel-distance-destination').textContent = `${eta.distanceToDestinationKm || 0} km`;
+
+        document.getElementById('panel-boarding-stop-name').textContent = eta.boardingStopName;
+        document.getElementById('panel-dest-stop-name').textContent = eta.destinationStopName;
+
+        document.getElementById('panel-stops-count').textContent = `${eta.stopsToBoarding} ${translations[currentLang]['stops_count_suffix']}`;
+        document.getElementById('panel-stops-destination').textContent = `${eta.stopsToDestination} ${translations[currentLang]['stops_count_suffix']}`;
+        
+        const trafficBadge = document.getElementById('panel-traffic-status');
+        trafficBadge.textContent = eta.trafficDescription;
+        trafficBadge.className = 'traffic-indicator';
+        if (eta.trafficFactor > 1.3) {
+          trafficBadge.classList.add('traffic-heavy');
+        } else if (eta.trafficFactor > 1.1) {
+          trafficBadge.classList.add('traffic-moderate');
+        } else {
+          trafficBadge.classList.add('traffic-light');
+        }
+
+        const progress = eta.routeProgress;
+        document.getElementById('panel-progress-percent').textContent = `${progress.percentComplete}%`;
+        document.getElementById('panel-progress-bar').style.width = `${progress.percentComplete}%`;
+      }
+    });
+
+    // Load buses in Tab 1
+    async function loadBuses(query = '') {
+      try {
+        const response = await fetch(`/v1/buses?search=${encodeURIComponent(query)}`);
+        const result = await response.json();
+        
+        if (result.success) {
+          buses = result.data;
+          renderBusList();
+        }
+      } catch (err) {
+        console.error('Failed to load buses', err);
+      }
+    }
+
+    function renderBusList() {
+      busList.innerHTML = '';
+      if (buses.length === 0) {
+        busList.innerHTML = `<div style="padding: 1.5rem; text-align: center; color: var(--text-muted);">${translations[currentLang]['no_buses_found']}</div>`;
+        return;
+      }
+
+      buses.forEach((bus) => {
+        const isActive = selectedBus && selectedBus.id === bus.id;
+        const item = document.createElement('div');
+        item.className = `bus-item ${isActive ? 'active' : ''}`;
+        item.onclick = () => selectBus(bus);
+
+        const freeBadge = bus.isFreeForWomen ? `<span style="font-size:0.65rem; background:rgba(16,185,129,0.15); color:var(--success); padding:2px 6px; border-radius:4px; margin-left:0.5rem; font-weight:600;">${translations[currentLang]['free_tag']}</span>` : '';
+        const lowFloorBadge = bus.isLowFloor ? `<span style="font-size:0.65rem; background:rgba(99,102,241,0.15); color:#818cf8; padding:2px 6px; border-radius:4px; margin-left:0.5rem; font-weight:600;">${translations[currentLang]['low_floor']}</span>` : '';
+
+        item.innerHTML = `
+          <div class="bus-info">
+            <span class="bus-badge" style="display:flex; align-items:center; flex-wrap:wrap; gap:0.25rem;">Bus ${bus.busNumber} ${freeBadge} ${lowFloorBadge}</span>
+            <span class="bus-route-name">${bus.routeName}</span>
+          </div>
+          <span class="bus-status-tag ${bus.status.toLowerCase()}">${bus.status}</span>
+        `;
+        busList.appendChild(item);
+      });
+    }
+
+    async function selectBus(bus) {
+      if (selectedBus) {
+        socket.emit('unsubscribe:bus', { busId: selectedBus.id });
+      }
+
+      selectedBus = bus;
+      selectedBoardingStop = null;
+      document.getElementById('pis-board').style.display = 'none';
+      renderBusList();
+
+      infoPanel.style.display = 'flex';
+      document.getElementById('panel-bus-no').textContent = bus.busNumber;
+      document.getElementById('panel-route-name').textContent = bus.routeName;
+      document.getElementById('panel-vehicle-no').textContent = bus.vehicleNo;
+      document.getElementById('panel-current-location').textContent = bus.currentPosition 
+        ? `${bus.currentPosition.lat.toFixed(5)}, ${bus.currentPosition.lon.toFixed(5)}`
+        : translations[currentLang]['awaiting_coords'];
+
+      document.getElementById('eta-metrics').style.display = 'none';
+      document.getElementById('stop-instruction').style.display = 'block';
+      document.getElementById('stop-instruction').textContent = translations[currentLang]['boarding_instruction'];
+
+      socket.emit('subscribe:bus', { busId: bus.id });
+      await loadRoute(bus.routeId);
+
+      if (bus.currentPosition) {
+        updateBusLocationOnMap(bus.currentPosition);
+      }
+    }
+
+    async function loadRoute(routeId) {
+      try {
+        const response = await fetch(`/v1/routes/${routeId}`);
+        const result = await response.json();
+        if (result.success) {
+          selectedRouteDetails = result.data;
+          plotRouteOnMap(selectedRouteDetails);
+        }
+      } catch (err) {
+        console.error('Failed to load route stops', err);
+      }
+    }
+
+    function clearMapLayers() {
+      stopMarkers.forEach(m => map.removeLayer(m));
+      stopMarkers = [];
+      if (routePolyline) {
+        map.removeLayer(routePolyline);
+        routePolyline = null;
+      }
+      if (busMarker) {
+        map.removeLayer(busMarker);
+        busMarker = null;
+      }
+    }
+
+    function plotRouteOnMap(route) {
+      clearMapLayers();
+      const stops = route.stops || route.routeStops;
+      if (!stops || stops.length === 0) return;
+
+      const pathCoords = [];
+      const stopIcon = L.divIcon({
+        className: 'custom-stop-marker',
+        html: '<div style="width:12px; height:12px; border-radius:50%; background:#818cf8; border:2px solid #ffffff; box-shadow:0 0 4px rgba(0,0,0,0.5);"></div>',
+        iconSize: [12, 12],
+        iconAnchor: [6, 6]
+      });
+
+      stops.forEach((routeStop, idx) => {
+        const stopObj = routeStop.stop || routeStop;
+        const lat = stopObj.latitude;
+        const lon = stopObj.longitude;
+        pathCoords.push([lat, lon]);
+
+        const marker = L.marker([lat, lon], { icon: stopIcon }).addTo(map);
+        marker.bindTooltip(`<b>${idx + 1}. ${stopObj.name}</b>`, {
+          direction: 'top',
+          offset: [0, -6]
+        });
+
+        marker.on('click', () => {
+          setBoardingStop(stopObj);
+        });
+
+        stopMarkers.push(marker);
+      });
+
+      routePolyline = L.polyline(pathCoords, {
+        color: '#6366f1',
+        weight: 4,
+        opacity: 0.75
+      }).addTo(map);
+
+      fitMapToDeliveryView();
+    }
+
+    function setBoardingStop(stop) {
+      selectedBoardingStop = stop;
+      document.getElementById('stop-instruction').innerHTML = `📍 ${translations[currentLang]['boarding_point']} <b>${stop.name}</b><br><span style="font-size:0.75rem; color: var(--text-muted);">${translations[currentLang]['calculating_eta']}</span>`;
+
+      const activeIcon = L.divIcon({
+        className: 'custom-active-stop-marker',
+        html: '<div style="width:18px; height:18px; border-radius:50%; background:var(--success); border:3px solid #ffffff; box-shadow:0 0 10px var(--success);"></div>',
+        iconSize: [18, 18],
+        iconAnchor: [9, 9]
+      });
+
+      const stops = selectedRouteDetails.stops || selectedRouteDetails.routeStops;
+      stops.forEach((rs, index) => {
+        const marker = stopMarkers[index];
+        const stopObj = rs.stop || rs;
+        if (stopObj.id === stop.id) {
+          marker.setIcon(activeIcon);
+        } else {
+          marker.setIcon(L.divIcon({
+            className: 'custom-stop-marker',
+            html: '<div style="width:12px; height:12px; border-radius:50%; background:#818cf8; border:2px solid #ffffff;"></div>',
+            iconSize: [12, 12],
+            iconAnchor: [6, 6]
+          }));
+        }
+      });
+
+      requestLiveETA();
+      updatePISBoard(stop);
+    }
+
+    function requestLiveETA() {
+      if (selectedBus && selectedBoardingStop && selectedRouteDetails) {
+        const stops = selectedRouteDetails.stops || selectedRouteDetails.routeStops;
+        const lastStop = stops[stops.length - 1];
+        const destinationStopId = lastStop.stopId || lastStop.id;
+        
+        socket.emit('request:eta', {
+          busId: selectedBus.id,
+          boardingStopId: selectedBoardingStop.id,
+          destinationStopId: destinationStopId
+        });
+      }
+    }
+
+    function updateBusLocationOnMap(position) {
+      document.getElementById('panel-current-location').textContent = `${position.lat.toFixed(5)}, ${position.lon.toFixed(5)}`;
+
+      const busIcon = L.divIcon({
+        className: 'custom-bus-marker',
+        html: `
+          <div style="position:relative; width:28px; height:28px; display:flex; justify-content:center; align-items:center;">
+            <div style="position:absolute; width:100%; height:100%; border-radius:50%; background:rgba(99, 102, 241, 0.4); animation: pulse 1.5s infinite; border: 2px solid var(--primary);"></div>
+            <div style="position:relative; font-size:14px; transform: rotate(${position.bearing || 0}deg);">🚌</div>
+          </div>
+          <style>
+            @keyframes pulse {
+              0% { transform: scale(0.8); opacity: 0.8; }
+              100% { transform: scale(1.6); opacity: 0; }
+            }
+          </style>
+        `,
+        iconSize: [28, 28],
+        iconAnchor: [14, 14]
+      });
+
+      if (busMarker) {
+        busMarker.setLatLng([position.lat, position.lon]);
+        busMarker.setIcon(busIcon);
+      } else {
+        busMarker = L.marker([position.lat, position.lon], { icon: busIcon }).addTo(map);
+        busMarker.bindTooltip(`<b>Bus ${selectedBus.busNumber}</b>`, { permanent: true, direction: 'right', offset: [15, 0] });
+      }
+
+      fitMapToDeliveryView();
+    }
+
+    function fitMapToDeliveryView() {
+      if (!map) return;
+      const bounds = L.latLngBounds();
+      
+      if (routePolyline) {
+        bounds.extend(routePolyline.getBounds());
+      }
+      
+      if (userMarker) {
+        bounds.extend(userMarker.getLatLng());
+      }
+      
+      if (busMarker) {
+        bounds.extend(busMarker.getLatLng());
+      }
+      
+      if (bounds.isValid()) {
+        map.fitBounds(bounds, { padding: [50, 50], maxZoom: 16 });
+      }
+    }
+
+    // Search keyup debouncer
+    let debounceTimer;
+    searchInput.addEventListener('input', (e) => {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        loadBuses(e.target.value);
+      }, 300);
+    });
+
+    // Sandbox Panel Toggle
+    function toggleSandbox() {
+      const panel = document.getElementById('sandbox-panel');
+      const isVisible = panel.style.display === 'flex';
+      panel.style.display = isVisible ? 'none' : 'flex';
+      if (!isVisible) {
+        syncSandboxSelection();
+        document.getElementById('sandbox-status').textContent = '';
+      }
+    }
+
+    // Switch sandbox tab
+    function switchSandboxTab(tab) {
+      document.getElementById('sb-tab-user').classList.toggle('active', tab === 'user');
+      document.getElementById('sb-tab-bus').classList.toggle('active', tab === 'bus');
+      document.getElementById('sb-user-section').style.display = tab === 'user' ? 'flex' : 'none';
+      document.getElementById('sb-bus-section').style.display = tab === 'bus' ? 'flex' : 'none';
+      document.getElementById('sandbox-status').textContent = '';
+    }
+
+    // Sync currently selected bus info to sandbox fields
+    function syncSandboxSelection() {
+      const select = document.getElementById('sandbox-bus-select');
+      if (!select) return;
+      
+      select.innerHTML = buses.map(b => `<option value="${b.id}">Bus ${b.busNumber} (${b.vehicleNo})</option>`).join('');
+      
+      if (selectedBus) {
+        select.value = selectedBus.id;
+        syncSandboxBusPosition();
+      }
+    }
+
+    function syncSandboxBusPosition() {
+      const select = document.getElementById('sandbox-bus-select');
+      const targetId = select.value;
+      const busObj = buses.find(b => b.id === targetId);
+      if (busObj && busObj.currentPosition) {
+        document.getElementById('sandbox-bus-lat').value = busObj.currentPosition.lat;
+        document.getElementById('sandbox-bus-lon').value = busObj.currentPosition.lon;
+      } else {
+        document.getElementById('sandbox-bus-lat').value = '';
+        document.getElementById('sandbox-bus-lon').value = '';
+      }
+    }
+
+    // Live Geolocation Watch Handler
+    let gpsWatchId = null;
+
+    function toggleLiveGPSTracking(enable) {
+      const status = document.getElementById('sandbox-status');
+      
+      if (!enable) {
+        if (gpsWatchId !== null) {
+          navigator.geolocation.clearWatch(gpsWatchId);
+          gpsWatchId = null;
+        }
+        status.textContent = 'Live GPS tracking disabled.';
+        return;
+      }
+
+      status.textContent = 'Acquiring continuous GPS lock...';
+      if (!navigator.geolocation) {
+        status.textContent = 'Geolocation is not supported by your browser.';
+        document.getElementById('sb-live-tracking-toggle').checked = false;
+        return;
+      }
+
+      gpsWatchId = navigator.geolocation.watchPosition(
+        (position) => {
+          const lat = position.coords.latitude;
+          const lon = position.coords.longitude;
+          
+          document.getElementById('sandbox-user-lat').value = lat;
+          document.getElementById('sandbox-user-lon').value = lon;
+          
+          applyUserGPSCoords(lat, lon);
+          status.textContent = `Live GPS Tracked: ${lat.toFixed(5)}, ${lon.toFixed(5)}`;
+        },
+        (error) => {
+          status.textContent = `GPS Watch Error: ${error.message}`;
+          document.getElementById('sb-live-tracking-toggle').checked = false;
+          if (gpsWatchId !== null) {
+            navigator.geolocation.clearWatch(gpsWatchId);
+            gpsWatchId = null;
+          }
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 0
+        }
+      );
+    }
+
+    // Apply User GPS coordinates: updates marker and selects the nearest route stop
+    function applyUserGPSCoords(latVal, lonVal) {
+      const userIcon = L.divIcon({
+        className: 'custom-user-gps-marker',
+        html: `
+          <div style="position:relative; width:24px; height:24px; display:flex; justify-content:center; align-items:center;">
+            <div style="position:absolute; width:100%; height:100%; border-radius:50%; background:rgba(16, 185, 129, 0.4); animation: userPulse 2s infinite; border: 2px solid var(--success);"></div>
+            <div style="position:relative; font-size:16px;">👤</div>
+          </div>
+          <style>
+            @keyframes userPulse {
+              0% { transform: scale(0.8); opacity: 0.8; }
+              100% { transform: scale(1.8); opacity: 0; }
+            }
+          </style>
+        `,
+        iconSize: [24, 24],
+        iconAnchor: [12, 12]
+      });
+
+      if (userMarker) {
+        userMarker.setLatLng([latVal, lonVal]);
+      } else {
+        userMarker = L.marker([latVal, lonVal], { icon: userIcon }).addTo(map);
+        userMarker.bindTooltip(`<b>My GPS Location</b>`, { permanent: true, direction: 'top', offset: [0, -12] });
+      }
+
+      // Find closest stop on currently active route
+      if (selectedRouteDetails) {
+        const stops = selectedRouteDetails.stops || selectedRouteDetails.routeStops;
+        if (stops && stops.length > 0) {
+          let nearestStop = null;
+          let minDistance = Infinity;
+
+          stops.forEach((rs) => {
+            const stopObj = rs.stop || rs;
+            const dist = Math.sqrt(Math.pow(stopObj.latitude - latVal, 2) + Math.pow(stopObj.longitude - lonVal, 2));
+            if (dist < minDistance) {
+              minDistance = dist;
+              nearestStop = stopObj;
+            }
+          });
+
+          if (nearestStop) {
+            setBoardingStop(nearestStop);
+          }
+        }
+      } else {
+        map.setView([latVal, lonVal], 13);
+      }
+      fitMapToDeliveryView();
+    }
+
+    // Apply User GPS manual pin
+    function applyUserGPS() {
+      const latVal = parseFloat(document.getElementById('sandbox-user-lat').value);
+      const lonVal = parseFloat(document.getElementById('sandbox-user-lon').value);
+      const status = document.getElementById('sandbox-status');
+
+      if (isNaN(latVal) || isNaN(lonVal)) {
+        status.textContent = 'Please enter valid GPS coordinates.';
+        return;
+      }
+
+      // Disable live tracker if user manually forces a custom pin coordinate
+      const toggle = document.getElementById('sb-live-tracking-toggle');
+      if (toggle && toggle.checked) {
+        toggle.checked = false;
+        toggleLiveGPSTracking(false);
+      }
+
+      applyUserGPSCoords(latVal, lonVal);
+      status.textContent = 'Pinned manual user coordinates!';
+    }
+
+    // Apply Friend's Bus GPS location
+    async function applyBusGPS() {
+      const select = document.getElementById('sandbox-bus-select');
+      const busId = select.value;
+      const latVal = parseFloat(document.getElementById('sandbox-bus-lat').value);
+      const lonVal = parseFloat(document.getElementById('sandbox-bus-lon').value);
+      const status = document.getElementById('sandbox-status');
+
+      if (!busId) {
+        status.textContent = 'No active bus selected.';
+        return;
+      }
+      if (isNaN(latVal) || isNaN(lonVal)) {
+        status.textContent = 'Please enter valid GPS coordinates.';
+        return;
+      }
+
+      status.textContent = 'Updating bus position...';
+
+      try {
+        const response = await fetch('/v1/buses/positions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            busId: busId,
+            lat: latVal,
+            lon: lonVal,
+            speed: 30,
+            bearing: 0,
+            isOverride: true
+          })
+        });
+
+        const result = await response.json();
+        if (result.success) {
+          status.textContent = 'Bus GPS successfully teleported!';
+          
+          // Update memory list so future rendering keeps the updated pos
+          const busObj = buses.find(b => b.id === busId);
+          if (busObj) {
+            busObj.currentPosition = { lat: latVal, lon: lonVal, bearing: 0, speed: 30, busId };
+          }
+          
+          // Trigger map render if it is the selected bus
+          if (selectedBus && selectedBus.id === busId) {
+            selectedBus.currentPosition = { lat: latVal, lon: lonVal, bearing: 0, speed: 30, busId };
+            updateBusLocationOnMap(selectedBus.currentPosition);
+            if (selectedBoardingStop) {
+              requestLiveETA();
+            }
+          }
+        } else {
+          status.textContent = 'Failed to update bus position.';
+        }
+      } catch (err) {
+        console.error(err);
+        status.textContent = 'Network error while updating position.';
+      }
+    }
+
+    // Start UI and setup autocompletes
+    initMap();
+    loadBuses();
+    setupAutocomplete('route-source', 'source-autocomplete');
+    setupAutocomplete('route-destination', 'destination-autocomplete');
+    updateTranslations();
+    
+    // Hook sandbox sync into lists
+    const origRender = renderBusList;
+    renderBusList = function() {
+      origRender();
+      syncSandboxSelection();
+    };
+
+    // PIS Departures Board rendering
+    function updatePISBoard(stop) {
+      const pisBoard = document.getElementById('pis-board');
+      const pisStopName = document.getElementById('pis-stop-name');
+      const pisList = document.getElementById('pis-departures-list');
+      
+      pisStopName.textContent = stop.name;
+      pisList.innerHTML = '';
+      pisBoard.style.display = 'flex';
+
+      if (!selectedRouteDetails) return;
+
+      const currentRouteBuses = selectedRouteDetails.buses || [];
+      if (currentRouteBuses.length === 0) {
+        pisList.innerHTML = `<div style="font-size:0.75rem; color:var(--text-muted); text-align:center; padding:0.5rem;">No upcoming buses</div>`;
+        return;
+      }
+
+      currentRouteBuses.forEach(b => {
+        let minutesAway = 15;
+        let distKm = 3.5;
+
+        if (b.currentPosition) {
+          const latDiff = b.currentPosition.lat - stop.latitude;
+          const lonDiff = b.currentPosition.lon - stop.longitude;
+          const degDist = Math.sqrt(latDiff * latDiff + lonDiff * lonDiff);
+          distKm = degDist * 111; // 1 degree ~ 111 km
+          minutesAway = Math.max(Math.ceil((distKm / 35) * 60), 1);
+        }
+
+        const devItem = document.createElement('div');
+        devItem.style.cssText = 'background:rgba(255,255,255,0.03); border: 1px solid var(--border-card); border-radius: 6px; padding: 0.5rem; display:flex; justify-content:space-between; align-items:center; font-size:0.8rem; margin-bottom: 0.25rem;';
+        
+        const wheelchairIcon = b.isLowFloor ? '♿' : '';
+        const freeWomenIcon = b.isFreeForWomen ? '👩' : '';
+        const serviceBadge = `<span style="font-size:0.65rem; background:rgba(255,255,255,0.1); padding:1px 4px; border-radius:3px; color:#a5b4fc; margin-left:0.25rem;">${b.serviceType}</span>`;
+
+        devItem.innerHTML = `
+          <div style="display:flex; flex-direction:column;">
+            <span style="font-weight:700; color:var(--text-main); display:flex; align-items:center; gap:4px;">
+              Bus ${b.busNumber} ${wheelchairIcon} ${freeWomenIcon} ${serviceBadge}
+            </span>
+            <span style="font-size:0.7rem; color:var(--text-muted);">${b.vehicleNo}</span>
+          </div>
+          <div style="text-align:right; display:flex; flex-direction:column;">
+            <span style="font-weight:bold; color:var(--success);">${minutesAway} mins</span>
+            <span style="font-size:0.7rem; color:var(--text-muted);">${distKm.toFixed(1)} km</span>
+          </div>
+        `;
+        pisList.appendChild(devItem);
+      });
+    }
+
+    // SOS Emergency Trigger
+    async function triggerSosAlert() {
+      let userLat = 13.0674; // Default to Koyambedu Hub
+      let userLon = 80.2058;
+
+      const userLatVal = parseFloat(document.getElementById('sandbox-user-lat').value);
+      const userLonVal = parseFloat(document.getElementById('sandbox-user-lon').value);
+      if (!isNaN(userLatVal) && !isNaN(userLonVal)) {
+        userLat = userLatVal;
+        userLon = userLonVal;
+      }
+
+      document.getElementById('sos-user-lat').textContent = userLat.toFixed(5);
+      document.getElementById('sos-user-lon').textContent = userLon.toFixed(5);
+
+      if (selectedBus) {
+        document.getElementById('sos-bus-id').textContent = selectedBus.id;
+        document.getElementById('sos-bus-vehicle').textContent = selectedBus.vehicleNo;
+      } else {
+        document.getElementById('sos-bus-id').textContent = 'N/A';
+        document.getElementById('sos-bus-vehicle').textContent = 'N/A';
+      }
+
+      document.getElementById('sos-modal').style.display = 'flex';
+
+      try {
+        await fetch('/v1/buses/sos', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            busId: selectedBus ? selectedBus.id : null,
+            busNumber: selectedBus ? selectedBus.busNumber : null,
+            vehicleNo: selectedBus ? selectedBus.vehicleNo : null,
+            latitude: userLat,
+            longitude: userLon,
+            alertType: 'SOS_BUTTON_TRIGGERED'
+          })
+        });
+      } catch (err) {
+        console.error('Failed to post SOS to database', err);
+      }
+    }
+
+    function closeSosModal() {
+      document.getElementById('sos-modal').style.display = 'none';
+    }
+
+    // Ticket Pass Modal Trigger
+    function openTicketModal() {
+      if (!selectedBus) {
+        alert(currentLang === 'en' ? 'Please select a bus first to generate a mobile pass.' : 'மொபைல் பாஸ் உருவாக்க முதலில் ஒரு பேருந்தைத் தேர்ந்தெடுக்கவும்.');
+        return;
+      }
+
+      document.getElementById('ticket-route-no').textContent = selectedBus.busNumber;
+      document.getElementById('ticket-date').textContent = new Date().toLocaleDateString(currentLang === 'en' ? 'en-US' : 'ta-IN');
+      
+      const priceEl = document.getElementById('ticket-price');
+      if (selectedBus.isFreeForWomen) {
+        priceEl.textContent = '₹0.00 (FREE)';
+        priceEl.style.color = '#10b981';
+      } else {
+        const fare = selectedBus.serviceType === 'ORDINARY' ? '₹10.00' :
+                     selectedBus.serviceType === 'DELUXE' ? '₹20.00' :
+                     selectedBus.serviceType === 'ULTRA_DELUXE' ? '₹35.00' :
+                     selectedBus.serviceType === 'AC_SLEEPER' ? '₹80.00' : '₹50.00';
+        priceEl.textContent = fare;
+        priceEl.style.color = '#6366f1';
+      }
+
+      document.getElementById('ticket-modal').style.display = 'flex';
+    }
+
+    function closeTicketModal() {
+      document.getElementById('ticket-modal').style.display = 'none';
+    }
+  </script>
+
+  <!-- SOS Emergency Modal -->
+  <div id="sos-modal" class="overlay-modal" style="display: none;">
+    <div class="modal-content" style="border: 2px solid #ef4444;">
+      <h2 style="color: #ef4444; display: flex; align-items: center; gap: 0.5rem; margin-top: 0;">
+        🚨 EMERGENCY SOS TRIGGERED
+      </h2>
+      <p style="font-size: 0.9rem; color: var(--text-main); margin-bottom: 1.25rem;">
+        An emergency alert has been initiated. Tamil Nadu safety responders are being notified with your exact coordinates.
+      </p>
+      
+      <div style="background: rgba(15, 23, 42, 0.4); padding: 1rem; border-radius: 8px; border: 1px solid var(--border-card); margin-bottom: 1.25rem; font-family: monospace; font-size: 0.825rem;">
+        <div><b>My Lat:</b> <span id="sos-user-lat">-</span></div>
+        <div><b>My Lon:</b> <span id="sos-user-lon">-</span></div>
+        <div><b>Bus ID:</b> <span id="sos-bus-id">N/A</span></div>
+        <div><b>Vehicle No:</b> <span id="sos-bus-vehicle">N/A</span></div>
+      </div>
+
+      <h3 style="font-size: 0.9rem; color: #a5b4fc; margin-bottom: 0.5rem;">Responders Quick Dial:</h3>
+      <div style="display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1.5rem;">
+        <a href="tel:112" class="sandbox-btn" style="background: #dc2626; color: white; text-align: center; text-decoration: none; font-weight: bold; padding: 0.5rem 1rem;">📞 Dial 112 (All Emergency)</a>
+        <a href="tel:1091" class="sandbox-btn" style="background: #db2777; color: white; text-align: center; text-decoration: none; font-weight: bold; padding: 0.5rem 1rem;">📞 Dial 1091 (Women Helpline)</a>
+        <a href="tel:100" class="sandbox-btn" style="background: #2563eb; color: white; text-align: center; text-decoration: none; font-weight: bold; padding: 0.5rem 1rem;">📞 Dial 100 (Police Command)</a>
+      </div>
+
+      <button class="sandbox-btn" style="background: rgba(255,255,255,0.1); width: 100%; border: none;" onclick="closeSosModal()">Close Alert Panel</button>
+    </div>
+  </div>
+
+  <!-- Ticket / QR Pass Modal -->
+  <div id="ticket-modal" class="overlay-modal" style="display: none;">
+    <div class="modal-content" style="max-width: 380px; text-align: center;">
+      <h2 style="color: var(--primary); margin-top: 0; font-size: 1.25rem;">🎟️ TN Transit Mobile Pass</h2>
+      <p style="font-size: 0.8rem; color: var(--text-muted);">Scan this QR Code at the ticket checker inside the bus</p>
+      
+      <!-- Dummy Ticket Visual -->
+      <div style="background: white; color: black; padding: 1.5rem; border-radius: 12px; margin: 1.25rem 0; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+        <div style="font-weight: 800; font-size: 1.1rem; border-bottom: 2px dashed #e2e8f0; padding-bottom: 0.5rem; color: #1e293b;">
+          VIDIYAL PAYANAM PASS
+        </div>
+        <div style="padding: 1rem 0;">
+          <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=BusTrack_Ticket_1784" alt="Ticket QR" style="width: 150px; height: 150px; margin: 0 auto; display: block;">
+        </div>
+        <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: #64748b; font-family: monospace;">
+          <div>
+            <div>ROUTE</div>
+            <div id="ticket-route-no" style="font-weight: bold; color: #0f172a;">47C</div>
+          </div>
+          <div>
+            <div>DATE</div>
+            <div id="ticket-date" style="font-weight: bold; color: #0f172a;">15/06/2026</div>
+          </div>
+          <div>
+            <div>FARE</div>
+            <div id="ticket-price" style="font-weight: bold; color: #10b981;">₹0.00 (FREE)</div>
+          </div>
+        </div>
+      </div>
+
+      <button class="sandbox-btn" style="background: var(--primary); width: 100%; border: none;" onclick="closeTicketModal()">Close Pass</button>
+    </div>
+  </div>
+</body>
+</html>
