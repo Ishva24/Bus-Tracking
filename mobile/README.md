@@ -1,5 +1,5 @@
 # Mobile Workspace
 
-This repository does not yet contain the React Native application code from the specification.
+This workspace now contains the initial mobile app scaffold for the BusTrack product.
 
-The workspace exists so the monorepo installs and builds cleanly while backend, simulator, and shared packages are implemented first.
+The actual React Native runtime and screen implementation still need to be installed and wired up, but the app contract, environment template, and screen blueprint are now in place.

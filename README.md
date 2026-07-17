@@ -15,9 +15,9 @@ Backend-first implementation of the real-time bus tracking monorepo described in
 
 ## Current gaps
 
-- The mobile React Native app from the spec is not present in this repository. A placeholder `mobile/` workspace is included so the monorepo installs and builds, but the actual app still needs to be scaffolded separately.
-- CI, deployment, and mobile release workflows are still pending.
+- The mobile React Native app still needs the native runtime dependencies and final screen implementation before it can run on a device or emulator.
 - External map and notification provider keys still need to be configured.
+- Production deployment targets and native release infrastructure are still pending.
 
 ## Quick start
 
