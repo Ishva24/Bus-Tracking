@@ -10,6 +10,17 @@ import { prisma } from '../db/prisma';
 
 const router = Router();
 
+function throwValidationError() {
+  return (req: Parameters<typeof validationResult>[0]) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      throw createError('Validation failed', 400, 'VALIDATION_ERROR', { errors: errors.array() });
+    }
+  };
+}
+
+const validate = throwValidationError();
+
 router.get(
   '/',
   asyncHandler(async (req, res) => {
@@ -43,10 +54,7 @@ router.get(
   etaLimiter,
   [query('boardingStopId').isString().notEmpty(), query('destinationStopId').isString().notEmpty()],
   asyncHandler(async (req, res) => {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      throw createError('Validation failed', 400, 'VALIDATION_ERROR', { errors: errors.array() });
-    }
+    validate(req);
 
     const eta = await computeETA(
       req.params.busId,
@@ -62,10 +70,7 @@ router.post(
   etaLimiter,
   [body('busId').isString().notEmpty(), body('boardingStopId').isString().notEmpty(), body('destinationStopId').isString().notEmpty()],
   asyncHandler(async (req, res) => {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      throw createError('Validation failed', 400, 'VALIDATION_ERROR', { errors: errors.array() });
-    }
+    validate(req);
 
     const eta = await computeETA(req.body.busId, req.body.boardingStopId, req.body.destinationStopId);
     res.json({ success: true, data: eta });
@@ -74,7 +79,15 @@ router.post(
 
 router.post(
   '/positions',
+  [
+    body('busId').isString().trim().notEmpty(),
+    body('lat').isFloat({ min: -90, max: 90 }).toFloat(),
+    body('lon').isFloat({ min: -180, max: 180 }).toFloat(),
+    body('speed').optional().isFloat({ min: 0, max: 200 }).toFloat(),
+    body('bearing').optional().isFloat({ min: 0, max: 360 }).toFloat(),
+  ],
   asyncHandler(async (req, res) => {
+    validate(req);
     const { busId, lat, lon, speed = 30, bearing = 0 } = req.body;
     
     // Fetch bus details to build a complete BusPosition
@@ -92,10 +105,10 @@ router.post(
       vehicleNo: bus.vehicleNo,
       busNumber: bus.busNumber,
       routeId: bus.routeId,
-      lat: parseFloat(lat),
-      lon: parseFloat(lon),
-      speed: parseFloat(speed),
-      bearing: parseFloat(bearing),
+      lat,
+      lon,
+      speed,
+      bearing,
       lastUpdated: new Date().toISOString(),
       currentStopId: null
     };
@@ -108,7 +121,16 @@ router.post(
 
 router.post(
   '/sos',
+  [
+    body('busId').isString().trim().notEmpty(),
+    body('busNumber').isString().trim().notEmpty(),
+    body('vehicleNo').isString().trim().notEmpty(),
+    body('latitude').isFloat({ min: -90, max: 90 }).toFloat(),
+    body('longitude').isFloat({ min: -180, max: 180 }).toFloat(),
+    body('alertType').optional().isString().trim().isLength({ max: 100 }),
+  ],
   asyncHandler(async (req, res) => {
+    validate(req);
     const { busId, busNumber, vehicleNo, latitude, longitude, alertType } = req.body;
 
     const alert = await prisma.emergencyAlert.create({
@@ -116,8 +138,8 @@ router.post(
         busId,
         busNumber,
         vehicleNo,
-        latitude: parseFloat(latitude),
-        longitude: parseFloat(longitude),
+        latitude,
+        longitude,
         alertType: alertType || 'SOS_BUTTON_TRIGGERED',
         status: 'ACTIVE',
       },
