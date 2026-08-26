@@ -12,7 +12,7 @@ const POSITION_CHANNEL = 'bus:position:update';
 export function createSocketServer(server: HttpServer) {
   const io = new Server(server, {
     cors: {
-      origin: config.corsOrigin,
+      origin: config.corsOrigins,
       credentials: true,
     },
   });

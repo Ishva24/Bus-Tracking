@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>BusTrack</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="phone-frame" aria-label="BusTrack mobile app">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">Chennai realtime transit</p>
+            <h1>BusTrack</h1>
+          </div>
+          <button class="icon-button" id="refreshButton" type="button" title="Refresh data" aria-label="Refresh data">↻</button>
+        </header>
+
+        <section class="status-strip" id="statusStrip">
+          <span class="status-dot"></span>
+          <span id="statusText">Ready to connect</span>
+        </section>
+
+        <section class="auth-panel" id="authPanel">
+          <div class="auth-tabs" role="tablist" aria-label="Authentication mode">
+            <button class="tab active" id="loginTab" type="button">Login</button>
+            <button class="tab" id="registerTab" type="button">Register</button>
+          </div>
+          <form id="authForm" class="form-stack">
+            <label>
+              <span>Email</span>
+              <input id="emailInput" type="email" autocomplete="email" value="demo@bustrack.app" required />
+            </label>
+            <label>
+              <span>Password</span>
+              <input id="passwordInput" type="password" autocomplete="current-password" value="Demo1234!" required />
+            </label>
+            <label class="register-only hidden">
+              <span>Name</span>
+              <input id="nameInput" type="text" autocomplete="name" placeholder="Your name" />
+            </label>
+            <label class="register-only hidden">
+              <span>Phone</span>
+              <input id="phoneInput" type="tel" autocomplete="tel" placeholder="+91 ..." />
+            </label>
+            <button class="primary-action" id="authSubmit" type="submit">Sign in</button>
+          </form>
+        </section>
+
+        <section class="dashboard hidden" id="dashboard">
+          <section class="profile-card">
+            <div>
+              <span class="eyebrow">Signed in</span>
+              <strong id="profileName">Demo Rider</strong>
+              <small id="profileEmail">demo@bustrack.app</small>
+            </div>
+            <button class="ghost-button" id="logoutButton" type="button">Logout</button>
+          </section>
+
+          <nav class="nav-tabs" aria-label="Primary screens">
+            <button class="nav-tab active" data-screen="home" type="button">Home</button>
+            <button class="nav-tab" data-screen="trip" type="button">Trip</button>
+            <button class="nav-tab" data-screen="favorites" type="button">Saved</button>
+            <button class="nav-tab" data-screen="profile" type="button">Profile</button>
+          </nav>
+
+          <section class="screen active" id="homeScreen">
+            <div class="search-grid">
+              <label>
+                <span>Routes</span>
+                <input id="routeSearchInput" type="search" placeholder="Search route number or stop" />
+              </label>
+              <label>
+                <span>Buses</span>
+                <input id="busSearchInput" type="search" placeholder="Search bus number" />
+              </label>
+            </div>
+            <div class="summary-row">
+              <article>
+                <span id="routeCount">0</span>
+                <small>routes</small>
+              </article>
+              <article>
+                <span id="busCount">0</span>
+                <small>active buses</small>
+              </article>
+              <article>
+                <span id="favoriteCount">0</span>
+                <small>saved</small>
+              </article>
+            </div>
+            <h2>Route Board</h2>
+            <div class="list" id="routesList"></div>
+            <h2>Live Buses</h2>
+            <div class="list" id="busesList"></div>
+          </section>
+
+          <section class="screen" id="tripScreen">
+            <form class="form-stack" id="etaForm">
+              <label>
+                <span>Bus</span>
+                <select id="etaBusSelect" required></select>
+              </label>
+              <label>
+                <span>Boarding stop ID</span>
+                <input id="boardingStopInput" type="text" placeholder="Pick from route details" required />
+              </label>
+              <label>
+                <span>Destination stop ID</span>
+                <input id="destinationStopInput" type="text" placeholder="Pick from route details" required />
+              </label>
+              <button class="primary-action" type="submit">Calculate ETA</button>
+            </form>
+            <article class="eta-card hidden" id="etaCard"></article>
+            <div class="list" id="selectedRouteStops"></div>
+          </section>
+
+          <section class="screen" id="favoritesScreen">
+            <h2>Favorite Routes</h2>
+            <div class="list" id="favoritesList"></div>
+          </section>
+
+          <section class="screen" id="profileScreen">
+            <article class="settings-card">
+              <span class="eyebrow">API base</span>
+              <input id="apiBaseInput" type="url" value="http://localhost:3000/v1" />
+              <button class="primary-action" id="saveApiButton" type="button">Save API URL</button>
+            </article>
+            <article class="settings-card">
+              <span class="eyebrow">Realtime</span>
+              <p>The app is ready for Socket.IO position updates; REST refresh is active in this dependency-light build.</p>
+            </article>
+          </section>
+        </section>
+      </section>
+    </main>
+    <script src="./app.js" defer></script>
+  </body>
+</html>

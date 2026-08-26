@@ -147,6 +147,10 @@ export async function computeETA(
     lon: routeStop.stop.longitude,
   }));
 
+  if (stops.length === 0) {
+    throw Errors.badRequest('Cannot calculate an ETA for a route without stops');
+  }
+
   const boardingIdx = stops.findIndex((stop) => stop.stopId === boardingStopId);
   const destinationIdx = stops.findIndex((stop) => stop.stopId === destinationStopId);
   if (boardingIdx === -1 || destinationIdx === -1) {

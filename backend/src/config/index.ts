@@ -1,3 +1,10 @@
+function parseCorsOrigins(value: string | undefined): string[] {
+  return (value || 'http://localhost:8081,http://localhost:5174')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+}
+
 export const config = {
   // Server
   port: parseInt(process.env.PORT || '3000', 10),
@@ -18,7 +25,7 @@ export const config = {
   },
 
   // CORS
-  corsOrigin: process.env.CORS_ORIGIN || 'http://localhost:8081',
+  corsOrigins: parseCorsOrigins(process.env.CORS_ORIGIN),
 
   // Rate Limiting
   rateLimit: {

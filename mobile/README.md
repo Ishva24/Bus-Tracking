@@ -1,5 +1,22 @@
-# Mobile Workspace
+# BusTrack Mobile
 
-This workspace now contains the initial mobile app scaffold for the BusTrack product.
+Dependency-light mobile web app for the BusTrack backend.
 
-The actual React Native runtime and screen implementation still need to be installed and wired up, but the app contract, environment template, and screen blueprint are now in place.
+## Run
+
+```powershell
+npm run start -w mobile
+```
+
+Open `http://localhost:5174`. The app defaults to `http://localhost:3000/v1` for the API and can be changed from the Profile screen.
+
+## Implemented
+
+- Login and registration using the backend auth endpoints
+- Route and bus search
+- Favorite route add/remove
+- Route stop details
+- ETA calculation form
+- API URL setting persisted in browser storage
+
+The original screen and API contract reference remains in `src/appBlueprint.ts`.

@@ -106,7 +106,9 @@ class ResilientRedisClient extends EventEmitter {
     this.inMemoryClient.on('pmessage', (pattern, channel, message) => {
       this.emit('pmessage', pattern, channel, message);
     });
-    this.connectRedis();
+    if (process.env.NODE_ENV !== 'test') {
+      this.connectRedis();
+    }
   }
 
   private connectRedis() {
